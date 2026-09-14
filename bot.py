@@ -1,8 +1,8 @@
-import os, json, requests
+import os, json, requests, asyncio
 from flask import Flask
 import threading
 from telegram import Update
-from telegram.ext import Application, CommandHandler, MessageHandler, ContextTypes, filters
+from telegram.ext import Application, CommandHandler, MessageHandler, filters
 
 TOKEN = os.getenv("BOT_TOKEN")
 BIN_ID = os.getenv("JSONBIN_ID")
@@ -14,10 +14,13 @@ OWNER_ID = 6742733767
 web_app = Flask(__name__)
 @web_app.route('/')
 def home(): return f"Bot alive! Owner: {OWNER_ID} - Group: -1004438442110 - DB: JSONBin FREE!"
-def run_web(): web_app.run(host='0.0.0.0', port=int(os.environ.get("PORT", 10000)))
+
+def run_web():
+    # FIX sa RuntimeError: There is no current event loop
+    asyncio.set_event_loop(asyncio.new_event_loop())
+    web_app.run(host='0.0.0.0', port=int(os.environ.get("PORT", 10000)), use_reloader=False)
 
 def load_data():
-    # FREE DB - JSONBin
     if BIN_ID and BIN_KEY:
         try:
             r = requests.get(f"https://api.jsonbin.io/v3/b/{BIN_ID}/latest", headers={"X-Master-Key": BIN_KEY}, timeout=10)
@@ -28,7 +31,6 @@ def load_data():
     except: return {"posts":[],"index":0,"channel_id":-1004438442110,"owner":OWNER_ID}
 
 def save_data(d):
-    # Save sa FREE DB
     if BIN_ID and BIN_KEY:
         try:
             requests.put(f"https://api.jsonbin.io/v3/b/{BIN_ID}", json=d, headers={"X-Master-Key": BIN_KEY, "Content-Type":"application/json"}, timeout=10)
@@ -89,14 +91,13 @@ async def auto_post(context):
     data=load_data()
     if not data["posts"] or not data["channel_id"]: return
     text = data["posts"][data["index"]]
-    # 4000 chars support
     for i in range(0, len(text), 4000):
         await context.bot.send_message(data["channel_id"], text[i:i+4000])
     data["index"]=(data["index"]+1)%len(data["posts"])
     save_data(data)
 
 if __name__=="__main__":
-    threading.Thread(target=run_web).start()
+    threading.Thread(target=run_web, daemon=True).start()
     app=Application.builder().token(TOKEN).build()
     app.add_handler(CommandHandler("set", set_channel))
     app.add_handler(CommandHandler("add", add))
