@@ -11,12 +11,11 @@ FILE = "data.json"
 BOT_USERNAME = "AP91426_bot"
 OWNER_USERNAME = "NormanLucban"
 OWNER_ID = 6742733767
-# YUNG LINK CHANNEL MO - DITO NA SIYA MAG POPOST
-DEFAULT_CHANNEL = "@invitenowmore" # https://t.me/invitenowmore
+DEFAULT_CHANNEL = "@invitenowmore"
 
 web_app = Flask(__name__)
 @web_app.route('/')
-def home(): return f"Bot alive! Owner: @{OWNER_USERNAME} -> Posting to {DEFAULT_CHANNEL} | PM Control Only!"
+def home(): return f"Bot alive! Owner: @{OWNER_USERNAME} -> Posting to {DEFAULT_CHANNEL}"
 
 def run_web():
     asyncio.set_event_loop(asyncio.new_event_loop())
@@ -26,11 +25,33 @@ def load_data():
     if BIN_ID and BIN_KEY:
         try:
             r = requests.get(f"https://api.jsonbin.io/v3/b/{BIN_ID}/latest", headers={"X-Master-Key": BIN_KEY}, timeout=10)
-            return r.json()['record']
+            data = r.json()['record']
+            # Lagyan ng laman pag empty
+            if not data.get("posts"):
+                data["posts"] = [
+                    "Hello! 👋 Welcome to @invitenowmore - Your Referral Link Channel!",
+                    "Hello! Your opportunity is here. Click my referral link to start: 👇\n\nhttps://shareappurl.com/bbqsort/share/html?referrer=1304098\n\nComment 'HOW' or DM me after you register!",
+                    "Hello everyone! Let's earn together! Join now: https://t.me/invitenowmore"
+                ]
+            return data
         except: pass
     try:
-        with open(FILE,"r") as f: return json.load(f)
-    except: return {"posts":[],"index":0,"channel_id":DEFAULT_CHANNEL,"owner":OWNER_ID, "owner_username": OWNER_USERNAME}
+        with open(FILE,"r") as f:
+            data = json.load(f)
+            if not data.get("posts"):
+                data["posts"] = ["Hello! 👋 Welcome to @invitenowmore!"]
+            return data
+    except:
+        return {
+            "posts":[
+                "Hello! 👋 Welcome to @invitenowmore - Your Referral Link Channel!",
+                "Hello! Your opportunity is here. Click my referral link to start: 👇\n\nhttps://shareappurl.com/bbqsort/share/html?referrer=1304098",
+                "Hello! Let's earn together! Comment 'HOW' after register!"
+            ],
+            "index":0,
+            "channel_id":DEFAULT_CHANNEL,
+            "owner":OWNER_ID
+        }
 
 def save_data(d):
     if BIN_ID and BIN_KEY:
@@ -46,59 +67,44 @@ def is_owner(update):
     return (user.username and user.username.lower() == OWNER_USERNAME.lower()) or user.id == OWNER_ID
 
 async def set_channel(update, context):
-    if not is_owner(update):
-        return await update.message.reply_text(f"❌ Only @{OWNER_USERNAME} - PM only!")
+    if not is_owner(update): return
     data=load_data()
-    if context.args:
-        raw = context.args[0]
-        # Support @username or -100 ID
-        if raw.startswith("@") or raw.startswith("https://t.me/"):
-            cid = raw.replace("https://t.me/", "@")
-            if not cid.startswith("@"): cid = "@" + cid
-        else:
-            try: cid = int(raw)
-            except: cid = raw
-    else:
-        cid = DEFAULT_CHANNEL
-    data["channel_id"]=cid
+    data["channel_id"]=DEFAULT_CHANNEL
     save_data(data)
-    await update.message.reply_text(f"✅ Now posting to: {cid}\nLink: https://t.me/{str(cid).replace('@','')}\nPrivate PM control!")
+    await update.message.reply_text(f"✅ Posting to {DEFAULT_CHANNEL} - https://t.me/invitenowmore")
 
 async def add(update, context):
     if not is_owner(update): return
     data=load_data()
     txt=" ".join(context.args)
-    if not txt: return await update.message.reply_text("Usage: /add your text here - 4000 chars")
+    if not txt: return await update.message.reply_text("Usage: /add Hello your text")
     data["posts"].append(txt); save_data(data)
-    await update.message.reply_text(f"✅ Added #{len(data['posts'])} Total: {len(data['posts'])}\nWill post to {data['channel_id']}")
+    await update.message.reply_text(f"✅ Added #{len(data['posts'])} - Will post to {DEFAULT_CHANNEL}")
 
 async def list_posts(update, context):
     if not is_owner(update): return
     data=load_data()
-    if not data["posts"]: return await update.message.reply_text("Empty pa - /add ka muna sa PM")
-    total=len(data["posts"])
-    await update.message.reply_text(f"TOTAL: {total} posts - Next: #{data['index']+1}\nChannel: {data['channel_id']}")
-    for i in range(0, min(total, 40), 20):
-        chunk=data["posts"][i:i+20]
-        msg="\n".join([f"{i+j+1}. {p[:70]}" for j,p in enumerate(chunk)])
-        await update.message.reply_text(f"{i+1}-{i+len(chunk)}:\n{msg}")
+    await update.message.reply_text(f"TOTAL: {len(data['posts'])} posts -> {data['channel_id']}\nNext: #{data['index']+1}")
+    for i, p in enumerate(data["posts"][:20]):
+        await update.message.reply_text(f"{i+1}. {p[:100]}")
 
 async def delete_post(update, context):
     if not is_owner(update): return
     data=load_data()
-    if not context.args: return await update.message.reply_text("Use: /del 5")
     try:
         num=int(context.args[0])-1
         data["posts"].pop(num)
-        if data["index"] >= len(data["posts"]): data["index"]=0
         save_data(data)
-        await update.message.reply_text(f"🗑️ Deleted #{num+1} Left: {len(data['posts'])}")
-    except: await update.message.reply_text("Invalid number!")
+        await update.message.reply_text(f"🗑️ Deleted #{num+1}")
+    except: await update.message.reply_text("Use: /del 1")
 
 async def status(update, context):
     if not is_owner(update): return
     data=load_data()
-    await update.message.reply_text(f"🤖 Status:\nOwner: @{OWNER_USERNAME}\nPosting to: {data['channel_id']}\nLink: https://t.me/{str(data['channel_id']).replace('@','')}\nTotal posts: {len(data['posts'])}\nNext: #{data['index']+1}\n\nPRIVATE PM MODE!")
+    await update.message.reply_text(f"🤖 LIVE!\nChannel: {data['channel_id']}\nPosts: {len(data['posts'])}\nNext: {data['index']+1}\n\nMay laman na HELLO! Mag popost na every 5 hrs!")
+
+async def error_handler(update, context):
+    print(f"Error ignored: {context.error}")
 
 async def auto_post(context):
     data=load_data()
@@ -109,9 +115,9 @@ async def auto_post(context):
             await context.bot.send_message(data["channel_id"], text[i:i+4000])
         data["index"]=(data["index"]+1)%len(data["posts"])
         save_data(data)
-        print(f"Posted to {data['channel_id']}: {text[:50]}")
+        print(f"✅ Posted to {data['channel_id']}")
     except Exception as e:
-        print(f"Auto post failed to {data['channel_id']}: {e}")
+        print(f"Post failed (will retry): {e}")
 
 if __name__=="__main__":
     asyncio.set_event_loop(asyncio.new_event_loop())
@@ -124,6 +130,7 @@ if __name__=="__main__":
     app.add_handler(CommandHandler("delete", delete_post))
     app.add_handler(CommandHandler("status", status))
     app.add_handler(CommandHandler("start", status))
+    app.add_error_handler(error_handler)
     app.job_queue.run_repeating(auto_post, interval=5*60*60, first=10)
-    print(f"Bot started - PM @{OWNER_USERNAME} - Posting to {DEFAULT_CHANNEL}")
+    print(f"Bot started with HELLO posts -> {DEFAULT_CHANNEL}")
     app.run_polling(drop_pending_updates=True)
