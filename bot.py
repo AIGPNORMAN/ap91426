@@ -4,7 +4,7 @@ import threading
 from telegram import Update
 from telegram.ext import Application, CommandHandler, ContextTypes
 
-TOKEN = os.getenv("8602421101:AAHcccYRQ-Ksp3CpdZW_P7Xzis-LCEx_qQk")
+TOKEN = os.getenv("BOT_TOKEN")
 FILE = "data.json"
 
 web_app = Flask(__name__)
