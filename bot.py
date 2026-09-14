@@ -1,9 +1,20 @@
 import os, json
+from flask import Flask
+import threading
 from telegram import Update
 from telegram.ext import Application, CommandHandler, ContextTypes
 
 TOKEN = os.getenv("8602421101:AAHcccYRQ-Ksp3CpdZW_P7Xzis-LCEx_qQk")
 FILE = "data.json"
+
+web_app = Flask(__name__)
+
+@web_app.route('/')
+def home():
+    return "Bot is alive!"
+
+def run_web():
+    web_app.run(host='0.0.0.0', port=10000)
 
 def load_data():
     try:
@@ -50,11 +61,13 @@ async def auto_post(context):
     data["index"] = (data["index"] + 1) % len(data["posts"])
     save_data(data)
 
-app = Application.builder().token(TOKEN).build()
-app.add_handler(CommandHandler("set", set_channel))
-app.add_handler(CommandHandler("add", add))
-app.add_handler(CommandHandler("list", list_posts))
-app.add_handler(CommandHandler("del", delete_post))
-app.add_handler(CommandHandler("delete", delete_post))
-app.job_queue.run_repeating(auto_post, interval=5*60*60, first=10)
-app.run_polling()
+if __name__ == "__main__":
+    threading.Thread(target=run_web).start()
+    app = Application.builder().token(TOKEN).build()
+    app.add_handler(CommandHandler("set", set_channel))
+    app.add_handler(CommandHandler("add", add))
+    app.add_handler(CommandHandler("list", list_posts))
+    app.add_handler(CommandHandler("del", delete_post))
+    app.add_handler(CommandHandler("delete", delete_post))
+    app.job_queue.run_repeating(auto_post, interval=5*60*60, first=10)
+    app.run_polling()
